@@ -1,0 +1,616 @@
+\documentclass[a4j,10pt]{jarticle}
+
+\usepackage[top=25mm,bottom=35mm,left=20mm,right=20mm]{geometry}
+
+\title{\bf Git (ギット) によるソースファイル管理}
+\author{グラフィックスメディア研究室}
+\date{}
+
+\begin{document}
+
+\maketitle
+\section{はじめに}
+
+\subsection{バージョン管理の必要性}
+
+\subsubsection{更新履歴の記録}
+ソフトウェアを開発していると，
+以前は動いていたのに変更したら動かなくなったということが起こる．
+また，トラブルやミスにより成果物を失ってしまうこともある．
+ソースコードの更新履歴を保存しておくことにより，
+過去のバージョンのソースコードを閲覧したり，
+開発中のソフトウェアをそのバージョンに戻したりできる．
+
+\subsubsection{ソフトウェアの共同開発}
+一般にソフトウェア開発は，
+複数の開発者が参加するプロジェクトとして行われる．
+この場合，異なる開発者が同じソースコードを編集するということが起こり得る．
+同一のファイルを複数の人が同時に編集すると，
+編集内容に矛盾が発生したり，
+最新バージョンがどれだかわからなくなったりすることがよくある．
+
+ソースコードの更新履歴を管理することにより，
+常に最新バージョンが明らかになり，
+複数の開発者の編集内容の統合（マージ）や競合（コンフリクト）の調停を行うことができる．
+
+\subsection{VCS (Version Control System)}
+ソースコードの履歴管理を行うソフトウェアを
+VCS (Version Control System) - バージョン管理システムと呼ぶ．
+VCSにおいて，更新履歴は以前のバージョンとの差分（変更点）によって管理される．
+この差分を保持するディレクトリをリポジトリ (Repository, Repo) と呼ぶ．
+
+VCS として，古くから SCCS (Source Code Control System) や
+RCS (Revision Control System) が使われてきた．
+リポジトリを持つものとしては，
+CVS (Concurrent Versions System) や SVN (Subversion) がある．
+また，Microsoft Visual Studioにも
+VSS (Visual Source Safe) という VCS が用意されている．
+これらはソースコードを単一のリポジトリで管理する{\bf 集中型の VCS} である．
+
+これに対し{\bf 分散型の VCS}，
+いわゆる {\bf DVCS (Distributed VCS)} も使われている．
+これは開発者間で共有するリポジトリの他に，
+個々の開発者も専用のリポジトリを持つ．
+この場合，開発者が個々に履歴管理を行い，
+結果を共有のリポジトリに反映することになる．
+これには Git や Mercurial などがある．
+
+VCS や DVCS によりバージョン管理を行う場合，
+開発者は最初にリポジトリからソースファイルを取り出して，
+手元（のマシンやディレクトリ）に保存する．
+この操作をチェックアウトという．
+また，手元のファイルを編集してリポジトリを更新する操作を，
+チェックインという．
+なお Git などの DVCS では，
+この操作は手元のリポジトリに対するものと共有のリポジトリに対するものの
+二段階になる．
+
+手元にファイルを置いている間に他の開発者がチェックインする可能性があるので，
+ファイルの編集を始める前にはリポジトリから最新のソースコードを取り出して，
+手元のファイルを更新すべきである．
+この操作をアップデートという．
+また，自分がチェックインする前にも適宜アップデートを行い，
+他の開発者の編集内容と自分の編集内容を統合しておく．
+
+\subsection{Git}
+Linux のカーネル開発で使われている DVCS である．
+Windowsでも使える．
+GitHub (\verb|http://github.com/|) のような公開リポジトリ
+（非公開にすることもできるけど有料）もある．
+
+\section{Git のインストール}
+たいていの Linux ディトリビューションは Git のパッケージを用意している．
+Mac OS X にも git コマンドは最初から入っている（Xcode 4 が対応している）．
+Windows については git コマンドやそのためのシェルあるいは GUI が入手可能である．
+詳しくは Git のホームページ \verb|http://git-scm.com/| を参照のこと．
+
+\section{ローカルリポジトリの作成}
+
+\subsection{初期設定}
+最初に開発者の名前とメールアドレスを登録する．
+これは git コマンドを使うすべてのマシンで最初に一度だけやっておく必要がある．
+``Your name'' には開発者の名前，
+user@center.wakayama-u.ac.jp には開発者のメールアドレスを設定する．
+これらは commit（後述）するたびに履歴情報に埋め込まれる．
+
+\begin{quote}
+\begin{verbatim}
+git config --global user.name "Your name"
+git config --global user.email user@center.wakayama-u.ac.jp
+\end{verbatim}
+\end{quote}
+
+ここで標準的に使用するテキストエディタを指定することもできる．
+指定しなければ vim が起動する\footnote{vim のもととなった vi は
+emacs と双璧をなす Unix / Linux 伝統のテキストエディタなので，
+使い方は覚えておいて損はない．}．
+emacs を使う場合は，下記のコマンドを実行する．
+
+\begin{quote}
+\begin{verbatim}
+git config --global core.editor emacs
+\end{verbatim}
+\end{quote}
+
+\subsection{git init - リポジトリの初期化}
+履歴管理をおこなうプロジェクトのディレクトリ（フォルダ）に cd する．
+Mac では cdto というツールをインストールしておくと便利である．
+Windows では，Git をインストールしていればフォルダの右クリックで
+``Git Bash Here'' というメニューが現れる．
+そこで以下のコマンドを実行する．
+
+\begin{quote}
+\begin{verbatim}
+git init
+\end{verbatim}
+\end{quote}
+
+\subsection{.gitignoreファイルの作成 - 履歴管理しないファイルの指定}
+プロジェクトのディレクトリの中にある履歴の管理を行わないファイル\footnote{
+テキストファイルでないファイルやサイズが巨大なファイル，
+他人には見られたくないファイルなど．}
+のファイル名を .gitignore というファイルに列挙して，
+プロジェクトのディレクトリに置く．
+ファイル名の指定にはワイルドカードが使用できる．
+
+\begin{quote}
+\begin{verbatim}
+a.out
+core
+*.o
+*~
+\end{verbatim}
+\end{quote}
+
+このファイルの書式などの詳細は自分で調べること．
+
+\subsection{git add - 履歴管理するファイルの追加}
+履歴管理を行うファイルをリポジトリに追加（登録）するには
+git addコマンドを実行する．
+
+\begin{quote}
+\begin{verbatim}
+git add ファイル名 …
+\end{verbatim}
+\end{quote}
+
+そのディレクトリ以下のすべての（\verb|.gitignore| に登録していない）
+ファイルを追加するには，
+カレントディレクトリを表す \verb|.|（ピリオド）を指定すればよい．
+
+\begin{quote}
+\begin{verbatim}
+git add .
+\end{verbatim}
+\end{quote}
+
+ファイルの追加を取り消すには \verb|git rm| コマンドを実行する．
+\verb|--cached|
+というオプションを付けないとファイル自体も削除されてしまうので注意すること．
+
+\begin{quote}
+\begin{verbatim}
+git rm --cached ファイル名 …
+\end{verbatim}
+\end{quote}
+
+\subsection{git rm / git mv - 履歴管理しているファイルの削除と移動}
+\verb|git add| コマンドで追加したファイルは Git の管理下にあるので，
+不用意に削除したり移動したりしてはいけない\footnote{でも多分大丈夫．}．
+ファイルの削除や移動は \verb|git rm| コマンドや
+\verb|git mv| コマンドを使って行う．
+
+\begin{quote}
+\begin{verbatim}
+git mv 元のファイル名 変更後のファイル名／移動先
+git rm ファイル名 …
+\end{verbatim}
+\end{quote}
+
+\subsection{git commit - 履歴の登録}
+ファイルの追加が終わったら，
+commit してローカルリポジトリに登録する．
+\verb|-m| オプションで指定している
+``first commit'' はこの commit に付けるコメントである．
+
+\begin{quote}
+\begin{verbatim}
+git commit -m "first commit"
+\end{verbatim}
+\end{quote}
+
+\section{リモートリポジトリの作成}
+VCS は複数の開発者による共同開発を支援する．
+Git の場合，同一のコンピュータなら，
+前章で作成したリポジトリを \verb|git clone| コマンド（後述）で
+コピーして共同開発を行う．
+Git はさらに，
+ネットワークを介して異なるマシン間で共同開発する場合にも使用することができる．
+その場合はリポジトリだけを特定のコンピュータ上に作成し（リモートリポジトリ），
+それを共有する方法を採ることもできる．
+
+\subsection{ssh クライアント}
+
+\subsubsection{遠隔ログイン}
+Windows 版の Git は MinGW や Cygwin で動いているので，
+その端末ウィンドウ（シェル）で \verb|ssh| コマンドが使える．
+サーバ host.wakayama-u.ac.jp にログインするには，下記のようにする．
+
+\begin{quote}
+\begin{verbatim}
+ssh user@host.wakayama-u.ac.jp
+\end{verbatim}
+\end{quote}
+
+このほかのクライアントとして，
+Windows には Tera Term や PuTTY がある．
+Tera Term は余計なものをインストールしない
+「コンパクトインストール」を個人的におすすめする．
+PuTTY には日本語化された「ごった煮版」がある．
+
+\subsubsection{ファイル転送}
+これも Git をインストールしていれば，
+シェルから \verb|scp| コマンドや \verb|sftp| コマンドが使える．
+このほかのクライアントとして，
+Windows では WinSCP が使える．
+Mac にはもともと \verb|scp| コマンドや \verb|sftp| コマンドが入っているが，
+Cyberduck も使いやすい．
+また Linux / Windows / Mac で使える FileZilla というクライアントもある．
+
+\subsection{鍵作成（この作業は飛ばしても構わない）}
+鍵は \verb|ssh-keygen| コマンドで作成できる．
+公開鍵と秘密鍵を作成し，
+公開鍵をログイン先のコンピュータに保存する．
+保存の仕方はログイン先に依存するが，
+システム情報学センターのサーバの場合は，
+ホームディレクトリにある .ssh という（不可視）ディレクトリ内に置いた
+\verb|authorized_keys|
+というファイルに追加する\footnote{このファイルが無ければ新規作成する．}．
+これは単に次のコマンドを実行すればよい．
+
+\begin{quote}
+\begin{verbatim}
+cat 公開鍵ファイル >> ~/.ssh/authorized_keys
+\end{verbatim}
+\end{quote}
+
+なお，鍵を作成する際にパスフレーズ（鍵を開くためのパスワード）を付けないでおくと，
+遠隔ログインの際にパスフレーズの入力を求められなくなる．
+秘密鍵を持ったクライアントからしかログインできないので
+他人が勝手にログインできるわけではないが，
+秘密鍵が漏れて（他人に知られて）しまうと危険なので，
+パスフレーズは付けておくべきである．
+
+\subsection{空のリポジトリの作成}
+まず ssh クライアントを使ってサーバ host.wakayama-u.ac.jp に遠隔ログインする．
+リポジトリを user というユーザのホームディレクトリの下の
+git というディレクトリに作るなら，
+次のコマンドを実行する．
+myproject は自分が作成するプロジェクトの名前である．
+
+\begin{quote}
+\begin{verbatim}
+mkdir ~user/git/myproject.git
+cd ~user/git/myproject.git
+git --bare init
+\end{verbatim}
+\end{quote}
+
+リポジトリだけを置く（ソースファイルなどは置かない）ので，
+この \verb|git init| には \verb|--bare| オプションを付ける．
+リポジトリを自分のホームディレクトリ直下に作るなら，
+``~user/git'' は ``~'' だけでよい．
+
+この後ログアウトする．
+以後はリポジトリを削除するときくらいしかログインすることはないと思う．
+
+\subsection{git remote add - リモートリポジトリの登録}
+ローカルリポジトリに \verb|git commit| した内容を
+リモートリポジトリに反映するには，
+最初に手元のプロジェクトのディレクトリで
+\verb|git remote add| コマンドを実行して，
+リモートリポジトリを登録する．
+
+\begin{quote}
+\begin{verbatim}
+git remote add origin ssh://user@host.wakayama-u.ac.jp/~user/git/myproject.git
+\end{verbatim}
+\end{quote}
+
+このコマンドは host.wakayama-u.ac.jp の
+~user/git/myproject.git というディレクトリにあるリポジトリを，
+origin という名前のリモートリポジトリとしてローカルリポジトリに登録する．
+
+ローカルリポジトリの内容をリモートリポジトリに反映するには，
+\verb|git push| コマンドを使う．
+
+\begin{quote}
+\begin{verbatim}
+git push -u origin master
+\end{verbatim}
+\end{quote}
+
+これは origin で表されるリモートリポジトリに
+ローカルリポジトリの master というブランチ（後述）の内容を反映する．
+一度 \verb|git push| コマンドに \verb|-u| オプションを付けて実行すれば，
+以後 \verb|git push| コマンドを実行するときに
+引数の ``origin master'' を省略できる．
+
+\begin{quote}
+\begin{verbatim}
+git push
+\end{verbatim}
+\end{quote}
+
+\section{日常の手順}
+
+\subsection{git clone - リポジトリのコピー}
+別のコンピュータで作業をする場合や，
+他人のプロジェクトを取り出す場合など，
+既にリモートリポジトリに反映されている内容を手元にコピーするには，
+\verb|git clone| コマンドを用いる．
+これは最初に一度だけやればよい．
+
+\begin{quote}
+\begin{verbatim}
+git clone ssh://user@host.wakayama-u.ac.jp/~user/git/myproject.git
+\end{verbatim}
+\end{quote}
+
+これでプロジェクトのディレクトリが手元に丸々コピーされる．
+
+\subsection{git pull - アップデート}
+手元にプロジェクトのコピーが既にある場合は，
+そのファイルを編集する前に，
+\verb|git pull| コマンドを使って
+リモートリポジトリの内容をローカルリポジトリに反映しておく．
+
+\begin{quote}
+\begin{verbatim}
+git pull
+\end{verbatim}
+\end{quote}
+
+このとき競合（コンフリクト）が発生していたら，
+他の開発者と相談の上，どう対応するか考える．
+詳細は \verb|git log| コマンドや
+\verb|git show| コマンドで調べることができる．
+
+\subsection{git commit - 履歴の登録}
+ファイルの編集が終わったら commit してローカルリポジトリに履歴を登録する．
+\verb|-a| オプションを付ければ，
+変更されたファイルに対して \verb|git add| も自動的に実行してくれる．
+
+\begin{quote}
+\begin{verbatim}
+git commit -a -m "コメント"
+\end{verbatim}
+\end{quote}
+
+\verb|-m| オプションで指定する ``コメント'' には，
+どういう編集や変更をおこなったかを記録しておく．
+\verb|-m| オプションを省略した場合は，
+初期設定でテキストエディタを指定していなければ，
+vim が起動する．
+なお，コメントを指定しないと commit されない．
+
+\subsection{commit の取り消し}
+commit を取り消す場合は \verb|git reset| コマンドを使う．
+このとき，commit したことだけを取り消して
+ファイル自体はそのままにしておくなら
+\verb|--soft| オプションを指定する．
+
+\begin{quote}
+\begin{verbatim}
+git reset --soft HEAD^
+\end{verbatim}
+\end{quote}
+
+\verb|--hard| オプションを指定すれば，
+編集したファイルも一緒に commit 前に戻す．
+
+\begin{quote}
+\begin{verbatim}
+git reset --hard HEAD^
+\end{verbatim}
+\end{quote}
+
+なお，直前の commit 内容を捨てて現在の編集内容で commit を新たにやり直すには，
+\verb|git commit| に \verb|--amend| オプションを追加する． 
+
+\begin{quote}
+\begin{verbatim}
+git commit --amend -a -m "やり直した内容に対するコメント"
+\end{verbatim}
+\end{quote}
+
+\subsection{git push - リモートリポジトリへの反映}
+commit した内容をリモートリポジトリに反映して他の人と共有するには，
+次のコマンドを用いる．
+
+\begin{quote}
+\begin{verbatim}
+git push
+\end{verbatim}
+\end{quote}
+
+\section{ブランチ}
+プロジェクトに対して大幅に変更を加える場合には，
+一旦そのリポジトリを枝分かれさせて，
+それに変更を加えた後，
+変更点をもとのリポジトリに統合（マージ）するという手順を取る．
+
+\subsection{ブランチの作成}
+リポジトリを枝分かれさせるには，
+\verb|git branch| コマンドを使う．
+枝分かれさせたリポジトリをブランチと呼ぶ．
+newbranch は枝分かれさせたブランチに付ける名前である．
+
+\begin{quote}
+\begin{verbatim}
+git branch newbranch
+\end{verbatim}
+\end{quote}
+
+ブランチ名（ここでは newbranch）を省略すると，
+現在のリポジトリにあるブランチの一覧が表示される．
+もともとあったブランチは master になっているはず．
+
+\subsection{ブランチの切り替え}
+あるブランチに対して変更を加える時は，
+\verb|git checkout| コマンドを使ってそのブランチに切り替える．
+
+\begin{quote}
+\begin{verbatim}
+git checkout newbranch
+\end{verbatim}
+\end{quote}
+
+このブランチに加えた変更は，
+他のブランチには反映されない．
+例えば，ここで \verb|git checkout master| コマンドによって
+master ブランチに切り替えると，
+変更したはずのファイルが元に戻っている．
+
+なお，\verb|git checkout| コマンドに \verb|-b| オプションを付ければ，
+新しいブランチを作ってそのブランチに切り替える操作を一度にできる．
+
+\begin{quote}
+\begin{verbatim}
+git checkout -b newbranch
+\end{verbatim}
+\end{quote}
+
+このコマンドは，次の二つのコマンドと同じである．
+
+\begin{quote}
+\begin{verbatim}
+git branch newbranch
+git checkout newbranch
+\end{verbatim}
+\end{quote}
+
+\subsection{リモートリポジトリにブランチを作成}
+るブランチで行った変更は，
+\verb|git push| によって他のブランチや
+最初のブランチである master には反映できない．
+ブランチはリモートリポジトリの対応するブランチに \verb|git push| する．
+
+\begin{quote}
+\begin{verbatim}
+git commit -a -m "コメント"
+git push origin newbranch
+\end{verbatim}
+\end{quote}
+
+この \verb|git push| を \verb|-u| オプションを付けて実行すれば，
+以後 \verb|git push| コマンドを実行するときに引数の
+``origin newbranch'' を省略できる．
+
+\subsection{ブランチのマージ}
+現在のブランチで行った変更を master ブランチに反映するには，
+master ブランチに切り替えてからそのブランチをマージする．
+リモートブランチの変更内容をマージする場合は，
+この前に \verb|git pull| する．
+
+\begin{quote}
+\begin{verbatim}
+git checkout master
+git merge newbranch
+\end{verbatim}
+\end{quote}
+
+これをリモートリポジトリにも反映するには，
+\verb|git push| コマンドを使う．
+
+\begin{quote}
+\begin{verbatim}
+git push
+\end{verbatim}
+\end{quote}
+
+\section{こういうときは}
+
+\subsection{関係ないファイルを git add してしまった}
+
+\begin{quote}
+\begin{verbatim}
+git rm --cached ファイル …
+\end{verbatim}
+\end{quote}
+
+\subsection{git add 自体を取り消したい}
+\begin{quote}
+\begin{verbatim}
+git reset HEAD
+\end{verbatim}
+\end{quote}
+
+\subsection{関係ない（.gitignore に登録されていない）ファイルを削除したい}
+
+\begin{quote}
+\begin{verbatim}
+git clean -f
+\end{verbatim}
+\end{quote}
+
+このとき必要なファイルまで消してしまう可能性があるので，
+事前に次のコマンドでチェックする．
+
+\begin{quote}
+\begin{verbatim}
+git clean --dry-run
+\end{verbatim}
+\end{quote}
+
+\subsection{前の commit を捨ててもう一度 commit し直したい}
+
+\begin{quote}
+\begin{verbatim}
+git commit --amend -a -m "コメント"
+\end{verbatim}
+\end{quote}
+
+\subsection{ファイルを編集前に戻したい}
+
+\begin{quote}
+\begin{verbatim}
+rm ファイル
+git checkout ファイル
+\end{verbatim}
+\end{quote}
+
+\subsection{全部のファイルを直前に commit したときに戻したい}
+
+\begin{quote}
+\begin{verbatim}
+git reset --hard HEAD
+\end{verbatim}
+\end{quote}
+
+\verb|--hard| オプションを付けると
+変更内容を取り戻すことはできないので注意すること．
+
+\subsection{現在の編集内容をそのままにして直前の commit を取り消したい}
+
+\begin{quote}
+\begin{verbatim}
+git reset --soft HEAD^
+\end{verbatim}
+\end{quote}
+
+\subsection{直前の commit 自体を取り消して現在の編集内容をその前に戻したい}
+
+\begin{quote}
+\begin{verbatim}
+git reset --hard HEAD^
+\end{verbatim}
+\end{quote}
+
+\subsection{直前の commit からの変更内容を見る}
+
+\begin{quote}
+\begin{verbatim}
+git diff
+\end{verbatim}
+\end{quote}
+
+\subsection{直前に commit した内容を見る}
+
+\begin{quote}
+\begin{verbatim}
+git show
+\end{verbatim}
+\end{quote}
+
+\subsection{履歴を見る}
+
+\begin{quote}
+\begin{verbatim}
+git log
+\end{verbatim}
+\end{quote}
+
+\verb|-p| オプションを付けると変更内容も表示する．
+
+\end{document}
