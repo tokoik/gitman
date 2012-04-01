@@ -4,7 +4,6 @@
 *.log
 *.aux
 *.dvi
-*.pdf
 #
 # for Linux
 #
